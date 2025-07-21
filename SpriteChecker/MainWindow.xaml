@@ -5,8 +5,198 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SpriteChecker"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Sprite Checker Tool" Height="800" Width="1200" MinHeight="600" MinWidth="900">
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0" Background="LightGray">
+            <MenuItem Header="File">
+                <MenuItem Header="Open Image..." Click="OpenImage_Click"/>
+                <Separator/>
+                <MenuItem Header="Save Atlas Data..." Click="SaveAtlas_Click"/>
+                <MenuItem Header="Load Atlas Data..." Click="LoadAtlas_Click"/>
+                <Separator/>
+                <MenuItem Header="Export Selected Sprite..." Click="ExportSprite_Click"/>
+                <Separator/>
+                <MenuItem Header="Exit" Click="Exit_Click"/>
+            </MenuItem>
+            <MenuItem Header="View">
+                <MenuItem Header="Zoom In" Click="ZoomIn_Click"/>
+                <MenuItem Header="Zoom Out" Click="ZoomOut_Click"/>
+                <MenuItem Header="Zoom to Fit" Click="ZoomToFit_Click"/>
+                <MenuItem Header="Actual Size" Click="ActualSize_Click"/>
+            </MenuItem>
+            <MenuItem Header="Tools">
+                <MenuItem Header="Grid Settings..." Click="GridSettings_Click"/>
+                <MenuItem Header="Clear All Sprites" Click="ClearSprites_Click"/>
+            </MenuItem>
+        </Menu>
 
+        <!-- Main Content Area -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="300" MinWidth="250"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Image Viewer Area -->
+            <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="1" Background="DarkGray">
+                <ScrollViewer x:Name="ImageScrollViewer" HorizontalScrollBarVisibility="Auto" 
+                             VerticalScrollBarVisibility="Auto" Background="DarkGray">
+                    <Grid x:Name="ImageContainer">
+                        <Image x:Name="SpriteImage" Stretch="None" MouseLeftButtonDown="Image_MouseLeftButtonDown" 
+                               MouseMove="Image_MouseMove" MouseLeftButtonUp="Image_MouseLeftButtonUp" 
+                               MouseRightButtonDown="Image_MouseRightButtonDown"/>
+                        <Canvas x:Name="SelectionCanvas" Background="Transparent"/>
+                        <Canvas x:Name="GridCanvas" Background="Transparent"/>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Gray"/>
+
+            <!-- Properties and Sprite List Panel -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Image Information Panel -->
+                <GroupBox Grid.Row="0" Header="Image Information" Margin="5">
+                    <StackPanel>
+                        <TextBlock x:Name="ImagePathText" TextWrapping="Wrap" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Dimensions:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DimensionsText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Bit Depth:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="BitDepthText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Format:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="FormatText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="DPI:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="DpiText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="File Size:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="FileSizeText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Transparency:" Margin="0,2" FontWeight="Bold"/>
+                            <TextBlock Grid.Row="5" Grid.Column="1" x:Name="TransparencyText" Margin="5,2"/>
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Current Selection Panel -->
+                <GroupBox Grid.Row="1" Header="Current Selection" Margin="5">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="X:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SelectionXText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Y:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SelectionYText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Width:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SelectionWidthText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Height:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SelectionHeightText" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Name:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBox Grid.Row="4" Grid.Column="1" x:Name="SpriteNameTextBox" Margin="5,2"/>
+                            
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Tag:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBox Grid.Row="5" Grid.Column="1" x:Name="SpriteTagTextBox" Margin="5,2"/>
+                            
+                            <Button Grid.Row="6" Grid.ColumnSpan="2" Content="Add Sprite" Click="AddSprite_Click" 
+                                   Margin="0,5" IsEnabled="False" x:Name="AddSpriteButton"/>
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
+                <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="Gray"/>
+
+                <!-- Sprite List Panel -->
+                <GroupBox Grid.Row="3" Header="Sprite List" Margin="5">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <ListBox Grid.Row="0" x:Name="SpriteListBox" SelectionChanged="SpriteList_SelectionChanged">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" Width="80"/>
+                                        <TextBlock Text="{Binding X, StringFormat='X:{0}'}" Width="40" Margin="5,0"/>
+                                        <TextBlock Text="{Binding Y, StringFormat='Y:{0}'}" Width="40" Margin="5,0"/>
+                                        <TextBlock Text="{Binding Width, StringFormat='W:{0}'}" Width="40" Margin="5,0"/>
+                                        <TextBlock Text="{Binding Height, StringFormat='H:{0}'}" Width="40" Margin="5,0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5,0,0">
+                            <Button Content="Remove" Click="RemoveSprite_Click" IsEnabled="False" x:Name="RemoveSpriteButton" Margin="0,0,5,0"/>
+                            <Button Content="Edit" Click="EditSprite_Click" IsEnabled="False" x:Name="EditSpriteButton" Margin="0,0,5,0"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+            </Grid>
+        </Grid>
+
+        <!-- Status Bar -->
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusText" Text="Ready"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock x:Name="ZoomText" Text="100%"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock x:Name="MousePositionText" Text=""/>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>

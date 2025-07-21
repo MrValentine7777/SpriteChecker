@@ -1,0 +1,82 @@
+{
+  "imagePath": "sample_spritesheet.png",
+  "imageWidth": 256,
+  "imageHeight": 256,
+  "bitDepth": 32,
+  "format": "Bgra32",
+  "createdDate": "2024-01-15T10:30:00",
+  "sprites": [
+    {
+      "name": "player_idle_01",
+      "x": 0,
+      "y": 0,
+      "width": 32,
+      "height": 32,
+      "description": "Player character idle animation frame 1",
+      "tag": "player"
+    },
+    {
+      "name": "player_idle_02",
+      "x": 32,
+      "y": 0,
+      "width": 32,
+      "height": 32,
+      "description": "Player character idle animation frame 2",
+      "tag": "player"
+    },
+    {
+      "name": "player_walk_01",
+      "x": 64,
+      "y": 0,
+      "width": 32,
+      "height": 32,
+      "description": "Player character walk animation frame 1",
+      "tag": "player"
+    },
+    {
+      "name": "enemy_spider",
+      "x": 0,
+      "y": 32,
+      "width": 24,
+      "height": 24,
+      "description": "Small spider enemy sprite",
+      "tag": "enemy"
+    },
+    {
+      "name": "coin_gold",
+      "x": 96,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "description": "Gold coin collectible",
+      "tag": "collectible"
+    },
+    {
+      "name": "button_start",
+      "x": 0,
+      "y": 64,
+      "width": 64,
+      "height": 24,
+      "description": "Start button for main menu",
+      "tag": "ui"
+    },
+    {
+      "name": "health_bar_full",
+      "x": 128,
+      "y": 0,
+      "width": 48,
+      "height": 8,
+      "description": "Full health bar sprite",
+      "tag": "ui"
+    },
+    {
+      "name": "background_tile",
+      "x": 0,
+      "y": 96,
+      "width": 32,
+      "height": 32,
+      "description": "Repeatable background tile",
+      "tag": "environment"
+    }
+  ]
+}
