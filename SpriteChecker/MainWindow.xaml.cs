@@ -39,16 +39,37 @@ namespace SpriteChecker
         private Color _gridColor = Colors.Gray;
         private double _gridOpacity = 0.5;
 
-        // Zoom settings
+        // Zoom and pan settings
         private double _zoomFactor = 1.0;
         private ScaleTransform _scaleTransform = new ScaleTransform();
+        private TranslateTransform _translateTransform = new TranslateTransform();
+        private TransformGroup _transformGroup = new TransformGroup();
+        
+        // Pan/scroll settings for right-click drag
+        private bool _isPanning = false;
+        private Point _panStartPoint;
+        private Point _panOriginalOffset;
+
+        // Zoom constraints
+        private const double MinZoom = 0.1;
+        private const double MaxZoom = 10.0;
 
         public MainWindow()
         {
             InitializeComponent();
             
-            // Set up zoom transform
-            ImageContainer.RenderTransform = _scaleTransform;
+            // Set up transform group for zoom and pan
+            _transformGroup.Children.Add(_scaleTransform);
+            _transformGroup.Children.Add(_translateTransform);
+            ImageContainer.RenderTransform = _transformGroup;
+            
+            // Enable mouse wheel events on the scroll viewer
+            ImageScrollViewer.PreviewMouseWheel += ImageScrollViewer_PreviewMouseWheel;
+            
+            // Enable right-click dragging for panning
+            ImageScrollViewer.MouseRightButtonDown += ImageScrollViewer_MouseRightButtonDown;
+            ImageScrollViewer.MouseRightButtonUp += ImageScrollViewer_MouseRightButtonUp;
+            ImageScrollViewer.MouseMove += ImageScrollViewer_MouseMove;
             
             UpdateUI();
         }
@@ -95,6 +116,9 @@ namespace SpriteChecker
                     Format = _currentImageMetadata.Format
                 };
 
+                // Reset zoom and pan when loading new image
+                ResetZoomAndPan();
+                
                 UpdateImageInfo();
                 ClearSelection();
                 DrawGrid();
@@ -271,14 +295,12 @@ namespace SpriteChecker
 
         private void ZoomIn_Click(object sender, RoutedEventArgs e)
         {
-            _zoomFactor *= 1.25;
-            UpdateZoom();
+            ZoomAt(1.25, new Point(ImageScrollViewer.ActualWidth / 2, ImageScrollViewer.ActualHeight / 2));
         }
 
         private void ZoomOut_Click(object sender, RoutedEventArgs e)
         {
-            _zoomFactor *= 0.8;
-            UpdateZoom();
+            ZoomAt(0.8, new Point(ImageScrollViewer.ActualWidth / 2, ImageScrollViewer.ActualHeight / 2));
         }
 
         private void ZoomToFit_Click(object sender, RoutedEventArgs e)
@@ -292,15 +314,72 @@ namespace SpriteChecker
 
                 var scaleX = containerWidth / imageWidth;
                 var scaleY = containerHeight / imageHeight;
-                _zoomFactor = Math.Min(scaleX, scaleY) * 0.9; // 90% to leave some margin
+                var newZoomFactor = Math.Min(scaleX, scaleY) * 0.9; // 90% to leave some margin
 
+                // Reset transforms and apply new zoom
+                _translateTransform.X = 0;
+                _translateTransform.Y = 0;
+                _zoomFactor = Math.Max(MinZoom, Math.Min(MaxZoom, newZoomFactor));
                 UpdateZoom();
             }
         }
 
         private void ActualSize_Click(object sender, RoutedEventArgs e)
         {
+            // Reset transforms and set to actual size
+            _translateTransform.X = 0;
+            _translateTransform.Y = 0;
             _zoomFactor = 1.0;
+            UpdateZoom();
+        }
+
+        private void ResetView_Click(object sender, RoutedEventArgs e)
+        {
+            ResetZoomAndPan();
+        }
+
+        private void ResetZoomAndPan()
+        {
+            _zoomFactor = 1.0;
+            _translateTransform.X = 0;
+            _translateTransform.Y = 0;
+            UpdateZoom();
+        }
+
+        private void ZoomAt(double zoomDelta, Point centerPoint)
+        {
+            var newZoomFactor = _zoomFactor * zoomDelta;
+            newZoomFactor = Math.Max(MinZoom, Math.Min(MaxZoom, newZoomFactor));
+
+            if (Math.Abs(newZoomFactor - _zoomFactor) < 0.001)
+                return; // No change needed
+
+            // Calculate the point relative to the ImageContainer
+            // centerPoint is relative to ImageScrollViewer, so we need to transform it to ImageContainer coordinates
+            var relativePoint = centerPoint;
+            
+            try
+            {
+                // Transform the mouse position from ScrollViewer coordinates to ImageContainer coordinates
+                var transform = ImageScrollViewer.TransformToDescendant(ImageContainer);
+                relativePoint = transform.Transform(centerPoint);
+            }
+            catch (InvalidOperationException)
+            {
+                // If transform fails, use the centerPoint as-is (fallback behavior)
+                // This can happen if the visual tree isn't fully constructed yet
+                relativePoint = centerPoint;
+            }
+            
+            // Apply zoom
+            var previousZoom = _zoomFactor;
+            _zoomFactor = newZoomFactor;
+            
+            // Adjust translation to keep the zoom point centered
+            var deltaZoom = _zoomFactor / previousZoom;
+            _translateTransform.X = (deltaZoom * (_translateTransform.X + relativePoint.X)) - relativePoint.X;
+            _translateTransform.Y = (deltaZoom * (_translateTransform.Y + relativePoint.Y)) - relativePoint.Y;
+
             UpdateZoom();
         }
 
@@ -314,6 +393,65 @@ namespace SpriteChecker
         private void UpdateZoomText()
         {
             ZoomText.Text = $"{_zoomFactor:P0}";
+        }
+
+        #endregion
+
+        #region Zoom and Pan Event Handlers
+
+        private void ImageScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // Only zoom when Ctrl is held down
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true; // Prevent normal scrolling
+                
+                var zoomDelta = e.Delta > 0 ? 1.1 : 0.9;
+                var mousePosition = e.GetPosition(ImageScrollViewer);
+                
+                ZoomAt(zoomDelta, mousePosition);
+            }
+            // If Ctrl is not held, allow normal scrolling behavior
+        }
+
+        private void ImageScrollViewer_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (SpriteImage.Source == null) return;
+
+            _isPanning = true;
+            _panStartPoint = e.GetPosition(ImageScrollViewer);
+            _panOriginalOffset = new Point(_translateTransform.X, _translateTransform.Y);
+            
+            ImageScrollViewer.CaptureMouse();
+            ImageScrollViewer.Cursor = Cursors.Hand;
+            
+            e.Handled = true; // Prevent context menu from appearing
+        }
+
+        private void ImageScrollViewer_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isPanning)
+            {
+                _isPanning = false;
+                ImageScrollViewer.ReleaseMouseCapture();
+                ImageScrollViewer.Cursor = Cursors.Arrow;
+                e.Handled = true;
+            }
+        }
+
+        private void ImageScrollViewer_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isPanning && e.RightButton == MouseButtonState.Pressed)
+            {
+                var currentPoint = e.GetPosition(ImageScrollViewer);
+                var deltaX = currentPoint.X - _panStartPoint.X;
+                var deltaY = currentPoint.Y - _panStartPoint.Y;
+
+                _translateTransform.X = _panOriginalOffset.X + deltaX;
+                _translateTransform.Y = _panOriginalOffset.Y + deltaY;
+                
+                e.Handled = true;
+            }
         }
 
         #endregion
@@ -368,7 +506,7 @@ namespace SpriteChecker
 
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (SpriteImage.Source == null) return;
+            if (SpriteImage.Source == null || _isPanning) return;
 
             _isSelecting = true;
             _selectionStartPoint = e.GetPosition(SpriteImage);
@@ -382,7 +520,7 @@ namespace SpriteChecker
             var position = e.GetPosition(SpriteImage);
             MousePositionText.Text = $"X: {(int)position.X}, Y: {(int)position.Y}";
 
-            if (_isSelecting && e.LeftButton == MouseButtonState.Pressed)
+            if (_isSelecting && e.LeftButton == MouseButtonState.Pressed && !_isPanning)
             {
                 UpdateSelection(position);
             }
@@ -402,8 +540,11 @@ namespace SpriteChecker
 
         private void Image_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // Clear selection on right click
-            ClearSelection();
+            // Only clear selection if we're not panning
+            if (!_isPanning)
+            {
+                ClearSelection();
+            }
         }
 
         #endregion

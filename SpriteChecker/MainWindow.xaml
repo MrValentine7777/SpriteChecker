@@ -30,6 +30,8 @@
                 <MenuItem Header="Zoom Out" Click="ZoomOut_Click"/>
                 <MenuItem Header="Zoom to Fit" Click="ZoomToFit_Click"/>
                 <MenuItem Header="Actual Size" Click="ActualSize_Click"/>
+                <Separator/>
+                <MenuItem Header="Reset View" Click="ResetView_Click"/>
             </MenuItem>
             <MenuItem Header="Tools">
                 <MenuItem Header="Grid Settings..." Click="GridSettings_Click"/>
@@ -138,8 +140,7 @@
                             
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Height:" FontWeight="Bold" Margin="0,2"/>
                             <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SelectionHeightText" Margin="5,2"/>
-                            
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Name:" FontWeight="Bold" Margin="0,2"/>
+                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Name:" FontWeight="Bold" Margin="0,2"/>
                             <TextBox Grid.Row="4" Grid.Column="1" x:Name="SpriteNameTextBox" Margin="5,2"/>
                             
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Tag:" FontWeight="Bold" Margin="0,2"/>
