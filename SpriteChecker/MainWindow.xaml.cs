@@ -71,6 +71,11 @@ namespace SpriteChecker
             ImageScrollViewer.MouseRightButtonUp += ImageScrollViewer_MouseRightButtonUp;
             ImageScrollViewer.MouseMove += ImageScrollViewer_MouseMove;
             
+            // Also add left-click events to ScrollViewer to ensure they reach the image
+            ImageScrollViewer.PreviewMouseLeftButtonDown += ImageScrollViewer_PreviewMouseLeftButtonDown;
+            ImageScrollViewer.PreviewMouseMove += ImageScrollViewer_PreviewMouseMove;
+            ImageScrollViewer.PreviewMouseLeftButtonUp += ImageScrollViewer_PreviewMouseLeftButtonUp;
+            
             UpdateUI();
         }
 
@@ -391,6 +396,13 @@ namespace SpriteChecker
             
             // Redraw grid when zoom changes to maintain proper line thickness
             DrawGrid();
+            
+            // Redraw sprites and selection to maintain proper visual scaling
+            DrawAllSprites();
+            if (_currentSelection.IsVisible)
+            {
+                DrawSelectionRectangle();
+            }
         }
 
         private void UpdateZoomText()
@@ -415,6 +427,60 @@ namespace SpriteChecker
                 ZoomAt(zoomDelta, mousePosition);
             }
             // If Ctrl is not held, allow normal scrolling behavior
+        }
+
+        private void ImageScrollViewer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Only handle if we're clicking on the image area and not panning
+            if (SpriteImage.Source == null || _isPanning) return;
+
+            // Get the position relative to the image
+            var imagePosition = e.GetPosition(SpriteImage);
+            
+            // Check if click is within image bounds
+            if (imagePosition.X >= 0 && imagePosition.Y >= 0 && 
+                imagePosition.X <= SpriteImage.Source.Width && imagePosition.Y <= SpriteImage.Source.Height)
+            {
+                _isSelecting = true;
+                _selectionStartPoint = ClampToImageBounds(imagePosition);
+                ImageScrollViewer.CaptureMouse(); // Capture on ScrollViewer instead of Image
+                
+                ClearSelection();
+                e.Handled = true; // Prevent further processing
+            }
+        }
+
+        private void ImageScrollViewer_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (SpriteImage.Source != null)
+            {
+                // Get position relative to the SpriteImage (which accounts for transforms)
+                var position = e.GetPosition(SpriteImage);
+                
+                // Clamp the position to image bounds for display
+                var clampedPosition = ClampToImageBounds(position);
+                
+                MousePositionText.Text = $"X: {(int)clampedPosition.X}, Y: {(int)clampedPosition.Y}";
+
+                if (_isSelecting && e.LeftButton == MouseButtonState.Pressed && !_isPanning)
+                {
+                    UpdateSelection(position);
+                    e.Handled = true; // Mark event as handled during selection
+                }
+            }
+        }
+
+        private void ImageScrollViewer_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isSelecting)
+            {
+                _isSelecting = false;
+                ImageScrollViewer.ReleaseMouseCapture();
+                
+                var endPoint = e.GetPosition(SpriteImage);
+                FinalizeSelection(endPoint);
+                e.Handled = true; // Mark event as handled
+            }
         }
 
         private void ImageScrollViewer_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -515,36 +581,20 @@ namespace SpriteChecker
 
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (SpriteImage.Source == null || _isPanning) return;
-
-            _isSelecting = true;
-            _selectionStartPoint = e.GetPosition(SpriteImage);
-            SpriteImage.CaptureMouse();
-
-            ClearSelection();
+            // This event is now handled by ScrollViewer preview events
+            // Keep this as fallback but don't do anything to avoid conflicts
         }
 
         private void Image_MouseMove(object sender, MouseEventArgs e)
         {
-            var position = e.GetPosition(SpriteImage);
-            MousePositionText.Text = $"X: {(int)position.X}, Y: {(int)position.Y}";
-
-            if (_isSelecting && e.LeftButton == MouseButtonState.Pressed && !_isPanning)
-            {
-                UpdateSelection(position);
-            }
+            // This event is now handled by ScrollViewer preview events
+            // Keep this as fallback but don't do anything to avoid conflicts
         }
 
         private void Image_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (_isSelecting)
-            {
-                _isSelecting = false;
-                SpriteImage.ReleaseMouseCapture();
-                
-                var endPoint = e.GetPosition(SpriteImage);
-                FinalizeSelection(endPoint);
-            }
+            // This event is now handled by ScrollViewer preview events
+            // Keep this as fallback but don't do anything to avoid conflicts
         }
 
         private void Image_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -554,6 +604,7 @@ namespace SpriteChecker
             {
                 ClearSelection();
             }
+            // Don't handle this event - let it bubble up for pan functionality
         }
 
         #endregion
@@ -562,10 +613,14 @@ namespace SpriteChecker
 
         private void UpdateSelection(Point currentPoint)
         {
-            var left = Math.Min(_selectionStartPoint.X, currentPoint.X);
-            var top = Math.Min(_selectionStartPoint.Y, currentPoint.Y);
-            var width = Math.Abs(currentPoint.X - _selectionStartPoint.X);
-            var height = Math.Abs(currentPoint.Y - _selectionStartPoint.Y);
+            // Clamp both points to image bounds
+            var clampedCurrentPoint = ClampToImageBounds(currentPoint);
+            var clampedStartPoint = ClampToImageBounds(_selectionStartPoint);
+
+            var left = Math.Min(clampedStartPoint.X, clampedCurrentPoint.X);
+            var top = Math.Min(clampedStartPoint.Y, clampedCurrentPoint.Y);
+            var width = Math.Abs(clampedCurrentPoint.X - clampedStartPoint.X);
+            var height = Math.Abs(clampedCurrentPoint.Y - clampedStartPoint.Y);
 
             _currentSelection.X = left;
             _currentSelection.Y = top;
@@ -606,11 +661,14 @@ namespace SpriteChecker
 
             if (_currentSelection.IsVisible)
             {
+                // Calculate stroke thickness based on zoom level for consistent visibility
+                var strokeThickness = Math.Max(1.0, 2.0 / _zoomFactor);
+                
                 _selectionRectangle = new Rectangle
                 {
                     Stroke = Brushes.Red,
-                    StrokeThickness = 2,
-                    StrokeDashArray = new DoubleCollection { 5, 5 },
+                    StrokeThickness = strokeThickness,
+                    StrokeDashArray = new DoubleCollection { 5 / _zoomFactor, 5 / _zoomFactor }, // Scale dash pattern with zoom
                     Fill = new SolidColorBrush(Color.FromArgb(30, 255, 0, 0)),
                     Width = _currentSelection.Width,
                     Height = _currentSelection.Height
@@ -710,11 +768,14 @@ namespace SpriteChecker
                 SelectionCanvas.Children.Remove(highlight);
             }
 
+            // Calculate stroke thickness based on zoom level for consistent visibility
+            var strokeThickness = Math.Max(2.0, 3.0 / _zoomFactor);
+
             // Add new highlight
             var highlightRect = new Rectangle
             {
                 Stroke = Brushes.Yellow,
-                StrokeThickness = 3,
+                StrokeThickness = strokeThickness,
                 Fill = new SolidColorBrush(Color.FromArgb(50, 255, 255, 0)),
                 Width = sprite.Width,
                 Height = sprite.Height,
@@ -743,13 +804,17 @@ namespace SpriteChecker
                 SelectionCanvas.Children.Remove(label);
             }
 
+            // Calculate appropriate sizes based on zoom level
+            var strokeThickness = Math.Max(0.5, 1.0 / _zoomFactor);
+            var fontSize = Math.Max(8, 10 / _zoomFactor);
+
             // Draw all sprites
             foreach (var sprite in _currentAtlas.Sprites)
             {
                 var rect = new Rectangle
                 {
                     Stroke = Brushes.Blue,
-                    StrokeThickness = 1,
+                    StrokeThickness = strokeThickness,
                     Fill = new SolidColorBrush(Color.FromArgb(20, 0, 0, 255)),
                     Width = sprite.Width,
                     Height = sprite.Height,
@@ -760,19 +825,19 @@ namespace SpriteChecker
                 Canvas.SetTop(rect, sprite.Y);
                 SelectionCanvas.Children.Add(rect);
 
-                // Add sprite name label
+                // Add sprite name label with zoom-adjusted font size
                 var label = new TextBlock
                 {
                     Text = sprite.Name,
                     Foreground = Brushes.Blue,
-                    FontSize = 10,
+                    FontSize = fontSize,
                     FontWeight = FontWeights.Bold,
                     Background = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)),
                     Tag = "sprite"
                 };
 
                 Canvas.SetLeft(label, sprite.X);
-                Canvas.SetTop(label, sprite.Y - 15);
+                Canvas.SetTop(label, sprite.Y - (15 / _zoomFactor)); // Scale label offset with zoom
                 SelectionCanvas.Children.Add(label);
             }
         }
@@ -883,6 +948,49 @@ namespace SpriteChecker
                 counter++;
             }
             return $"{number:n1} {suffixes[counter]}";
+        }
+
+        #endregion
+
+        #region Coordinate Transformation Helpers
+
+        /// <summary>
+        /// Converts a point from ScrollViewer coordinates to Image pixel coordinates
+        /// </summary>
+        private Point TransformScrollViewerToImage(Point scrollViewerPoint)
+        {
+            try
+            {
+                // Transform from ScrollViewer to Image coordinates
+                var imagePoint = ImageScrollViewer.TransformToDescendant(SpriteImage).Transform(scrollViewerPoint);
+                
+                // Clamp to image bounds
+                if (SpriteImage.Source != null)
+                {
+                    imagePoint.X = Math.Max(0, Math.Min(imagePoint.X, SpriteImage.Source.Width));
+                    imagePoint.Y = Math.Max(0, Math.Min(imagePoint.Y, SpriteImage.Source.Height));
+                }
+                
+                return imagePoint;
+            }
+            catch (InvalidOperationException)
+            {
+                // Fallback: return the point as-is if transform fails
+                return scrollViewerPoint;
+            }
+        }
+
+        /// <summary>
+        /// Ensures a point is within image bounds
+        /// </summary>
+        private Point ClampToImageBounds(Point point)
+        {
+            if (SpriteImage.Source == null) return point;
+            
+            return new Point(
+                Math.Max(0, Math.Min(point.X, SpriteImage.Source.Width)),
+                Math.Max(0, Math.Min(point.Y, SpriteImage.Source.Height))
+            );
         }
 
         #endregion
