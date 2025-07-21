@@ -343,7 +343,7 @@ namespace SpriteChecker
             _zoomFactor = 1.0;
             _translateTransform.X = 0;
             _translateTransform.Y = 0;
-            UpdateZoom();
+            UpdateZoom(); // This will call DrawGrid() automatically
         }
 
         private void ZoomAt(double zoomDelta, Point centerPoint)
@@ -388,6 +388,9 @@ namespace SpriteChecker
             _scaleTransform.ScaleX = _zoomFactor;
             _scaleTransform.ScaleY = _zoomFactor;
             UpdateZoomText();
+            
+            // Redraw grid when zoom changes to maintain proper line thickness
+            DrawGrid();
         }
 
         private void UpdateZoomText()
@@ -450,6 +453,7 @@ namespace SpriteChecker
                 _translateTransform.X = _panOriginalOffset.X + deltaX;
                 _translateTransform.Y = _panOriginalOffset.Y + deltaY;
                 
+                // No need to redraw grid during panning since it moves with the transform
                 e.Handled = true;
             }
         }
@@ -468,8 +472,13 @@ namespace SpriteChecker
             var imageHeight = SpriteImage.Source.Height;
 
             var gridBrush = new SolidColorBrush(_gridColor) { Opacity = _gridOpacity };
+            
+            // Calculate line thickness based on zoom level to maintain visual consistency
+            // At normal zoom (1.0), use thickness of 1. As zoom decreases, increase thickness
+            // so grid lines remain visible
+            var lineThickness = Math.Max(0.5, 1.0 / _zoomFactor);
 
-            // Draw vertical lines
+            // Draw vertical lines starting from x=0 (image origin)
             for (int x = 0; x <= imageWidth; x += _gridSizeX)
             {
                 var line = new Line
@@ -479,12 +488,12 @@ namespace SpriteChecker
                     X2 = x,
                     Y2 = imageHeight,
                     Stroke = gridBrush,
-                    StrokeThickness = 1
+                    StrokeThickness = lineThickness
                 };
                 GridCanvas.Children.Add(line);
             }
 
-            // Draw horizontal lines
+            // Draw horizontal lines starting from y=0 (image origin)
             for (int y = 0; y <= imageHeight; y += _gridSizeY)
             {
                 var line = new Line
@@ -494,7 +503,7 @@ namespace SpriteChecker
                     X2 = imageWidth,
                     Y2 = y,
                     Stroke = gridBrush,
-                    StrokeThickness = 1
+                    StrokeThickness = lineThickness
                 };
                 GridCanvas.Children.Add(line);
             }
