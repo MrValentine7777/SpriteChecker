@@ -54,6 +54,10 @@ namespace SpriteChecker
         private const double MinZoom = 0.1;
         private const double MaxZoom = 10.0;
 
+        // Manual editing flags
+        private bool _updatingTextBoxesProgrammatically = false;
+        private List<Rectangle> _ghostSprites = new List<Rectangle>();
+
         public MainWindow()
         {
             InitializeComponent();
@@ -399,6 +403,7 @@ namespace SpriteChecker
             
             // Redraw sprites and selection to maintain proper visual scaling
             DrawAllSprites();
+            UpdateGhostSprites();
             if (_currentSelection.IsVisible)
             {
                 DrawSelectionRectangle();
@@ -648,7 +653,18 @@ namespace SpriteChecker
         private void ClearSelection()
         {
             _currentSelection.IsVisible = false;
-            SelectionCanvas.Children.Clear();
+            
+            // Clear selection rectangle but keep ghost sprites
+            var itemsToRemove = SelectionCanvas.Children.OfType<Rectangle>()
+                .Where(r => r.Tag?.ToString() != "ghost" && 
+                           r.Tag?.ToString() != "sprite" && 
+                           r.Tag?.ToString() != "highlight").ToList();
+            
+            foreach (var item in itemsToRemove)
+            {
+                SelectionCanvas.Children.Remove(item);
+            }
+
             AddSpriteButton.IsEnabled = false;
             SpriteNameTextBox.Text = "";
             SpriteTagTextBox.Text = "";
@@ -702,6 +718,9 @@ namespace SpriteChecker
             _currentAtlas.Sprites.Add(sprite);
             SpriteListBox.ItemsSource = null;
             SpriteListBox.ItemsSource = _currentAtlas.Sprites;
+
+            // Create ghost sprite before clearing selection
+            CreateGhostSprite(sprite);
 
             DrawAllSprites();
             ClearSelection();
@@ -804,42 +823,122 @@ namespace SpriteChecker
                 SelectionCanvas.Children.Remove(label);
             }
 
-            // Calculate appropriate sizes based on zoom level
-            var strokeThickness = Math.Max(0.5, 1.0 / _zoomFactor);
-            var fontSize = Math.Max(8, 10 / _zoomFactor);
+            if (_currentAtlas.Sprites.Count == 0) return;
 
-            // Draw all sprites
             foreach (var sprite in _currentAtlas.Sprites)
             {
-                var rect = new Rectangle
+                var spriteRect = new Rectangle
                 {
                     Stroke = Brushes.Blue,
-                    StrokeThickness = strokeThickness,
-                    Fill = new SolidColorBrush(Color.FromArgb(20, 0, 0, 255)),
+                    StrokeThickness = 1 / _zoomFactor,
+                    Fill = Brushes.Transparent,
                     Width = sprite.Width,
                     Height = sprite.Height,
                     Tag = "sprite"
                 };
 
-                Canvas.SetLeft(rect, sprite.X);
-                Canvas.SetTop(rect, sprite.Y);
-                SelectionCanvas.Children.Add(rect);
+                var zoomFactor = _zoomFactor;
 
-                // Add sprite name label with zoom-adjusted font size
+                // Adjust position considering the current translation and zoom
+                var adjustedX = (sprite.X) * zoomFactor + _translateTransform.X;
+                var adjustedY = (sprite.Y) * zoomFactor + _translateTransform.Y;
+
+                Canvas.SetLeft(spriteRect, adjustedX);
+                Canvas.SetTop(spriteRect, adjustedY);
+
+                SelectionCanvas.Children.Add(spriteRect);
+
+                // Draw sprite name label
                 var label = new TextBlock
                 {
                     Text = sprite.Name,
-                    Foreground = Brushes.Blue,
-                    FontSize = fontSize,
-                    FontWeight = FontWeights.Bold,
-                    Background = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)),
-                    Tag = "sprite"
+                    Foreground = Brushes.White,
+                    Background = Brushes.Black,
+                    Tag = "sprite",
+                    Padding = new Thickness(2),
+                    FontSize = 12 / zoomFactor
                 };
 
-                Canvas.SetLeft(label, sprite.X);
-                Canvas.SetTop(label, sprite.Y - (15 / _zoomFactor)); // Scale label offset with zoom
+                // Adjust label position to be at the sprite's position
+                Canvas.SetLeft(label, adjustedX);
+                Canvas.SetTop(label, adjustedY + sprite.Height * zoomFactor);
+
                 SelectionCanvas.Children.Add(label);
             }
+        }
+
+        private void CreateGhostSprite(SpriteInfo sprite)
+        {
+            // Remove existing ghost sprites
+            foreach (var ghost in _ghostSprites)
+            {
+                SelectionCanvas.Children.Remove(ghost);
+            }
+            _ghostSprites.Clear();
+
+            if (sprite == null) return;
+
+            var ghostSprite = new Rectangle
+            {
+                Stroke = Brushes.Red,
+                StrokeThickness = 1,
+                Fill = new SolidColorBrush(Color.FromArgb(120, 255, 0, 0)),
+                Width = sprite.Width,
+                Height = sprite.Height,
+                Tag = "ghost"
+            };
+
+            Canvas.SetLeft(ghostSprite, sprite.X);
+            Canvas.SetTop(ghostSprite, sprite.Y);
+
+            SelectionCanvas.Children.Add(ghostSprite);
+            _ghostSprites.Add(ghostSprite);
+        }
+
+        private void UpdateGhostSprites()
+        {
+            // Update existing ghost sprites to match sprite positions
+            foreach (var sprite in _currentAtlas.Sprites)
+            {
+                var ghost = _ghostSprites.FirstOrDefault(g => g.Tag?.ToString() == "ghost" && 
+                                                             Canvas.GetLeft(g) == sprite.X &&
+                                                             Canvas.GetTop(g) == sprite.Y);
+                
+                if (ghost != null)
+                {
+                    // Update position
+                    var zoomFactor = _zoomFactor;
+                    var adjustedX = (sprite.X) * zoomFactor + _translateTransform.X;
+                    var adjustedY = (sprite.Y) * zoomFactor + _translateTransform.Y;
+
+                    Canvas.SetLeft(ghost, adjustedX);
+                    Canvas.SetTop(ghost, adjustedY);
+                }
+            }
+        }
+
+        private void ClearSprites_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("Are you sure you want to clear all sprites?", "Confirm", 
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            {
+                _currentAtlas.Sprites.Clear();
+                SpriteListBox.ItemsSource = null;
+                SpriteListBox.ItemsSource = _currentAtlas.Sprites;
+                ClearGhostSprites(); // Clear ghost sprites when clearing all sprites
+                DrawAllSprites();
+                StatusText.Text = "All sprites cleared";
+            }
+        }
+
+        private void ClearGhostSprites()
+        {
+            // Remove existing ghost sprites
+            foreach (var ghost in _ghostSprites)
+            {
+                SelectionCanvas.Children.Remove(ghost);
+            }
+            _ghostSprites.Clear();
         }
 
         #endregion
@@ -868,19 +967,6 @@ namespace SpriteChecker
                 
                 DrawGrid();
                 StatusText.Text = "Grid settings updated";
-            }
-        }
-
-        private void ClearSprites_Click(object sender, RoutedEventArgs e)
-        {
-            if (MessageBox.Show("Are you sure you want to clear all sprites?", "Confirm", 
-                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-            {
-                _currentAtlas.Sprites.Clear();
-                SpriteListBox.ItemsSource = null;
-                SpriteListBox.ItemsSource = _currentAtlas.Sprites;
-                DrawAllSprites();
-                StatusText.Text = "All sprites cleared";
             }
         }
 
@@ -914,20 +1000,7 @@ namespace SpriteChecker
 
         private void UpdateSelectionInfo()
         {
-            if (_currentSelection.IsVisible)
-            {
-                SelectionXText.Text = ((int)_currentSelection.X).ToString();
-                SelectionYText.Text = ((int)_currentSelection.Y).ToString();
-                SelectionWidthText.Text = ((int)_currentSelection.Width).ToString();
-                SelectionHeightText.Text = ((int)_currentSelection.Height).ToString();
-            }
-            else
-            {
-                SelectionXText.Text = "-";
-                SelectionYText.Text = "-";
-                SelectionWidthText.Text = "-";
-                SelectionHeightText.Text = "-";
-            }
+            UpdateSelectionTextBoxes();
         }
 
         private void UpdateUI()
@@ -948,6 +1021,94 @@ namespace SpriteChecker
                 counter++;
             }
             return $"{number:n1} {suffixes[counter]}";
+        }
+
+        #endregion
+
+        #region Manual Selection Editing
+
+        private void SelectionCoordinate_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            // Don't process if we're updating programmatically
+            if (_updatingTextBoxesProgrammatically) return;
+
+            // Only process if we have a current selection
+            if (!_currentSelection.IsVisible) return;
+
+            var textBox = sender as TextBox;
+            if (textBox?.Tag == null) return;
+
+            var coordinate = textBox.Tag.ToString();
+            
+            // Try to parse the value
+            if (!int.TryParse(textBox.Text, out int value))
+            {
+                // Invalid input, revert to current value
+                UpdateSelectionTextBoxes();
+                return;
+            }
+
+            // Ensure value is within reasonable bounds
+            if (SpriteImage.Source != null)
+            {
+                switch (coordinate)
+                {
+                    case "X":
+                        value = Math.Max(0, Math.Min(value, (int)SpriteImage.Source.Width - 1));
+                        _currentSelection.X = value;
+                        break;
+                    case "Y":
+                        value = Math.Max(0, Math.Min(value, (int)SpriteImage.Source.Height - 1));
+                        _currentSelection.Y = value;
+                        break;
+                    case "Width":
+                        value = Math.Max(1, Math.Min(value, (int)SpriteImage.Source.Width - (int)_currentSelection.X));
+                        _currentSelection.Width = value;
+                        break;
+                    case "Height":
+                        value = Math.Max(1, Math.Min(value, (int)SpriteImage.Source.Height - (int)_currentSelection.Y));
+                        _currentSelection.Height = value;
+                        break;
+                }
+            }
+
+            // Update the visual selection
+            DrawSelectionRectangle();
+            
+            // Update text boxes with clamped values (without triggering events)
+            UpdateSelectionTextBoxes();
+            
+            // Enable Add Sprite button if selection is valid
+            if (_currentSelection.Width > 0 && _currentSelection.Height > 0)
+            {
+                AddSpriteButton.IsEnabled = true;
+                if (string.IsNullOrWhiteSpace(SpriteNameTextBox.Text))
+                {
+                    SpriteNameTextBox.Text = $"Sprite_{_currentAtlas.Sprites.Count + 1}";
+                }
+            }
+        }
+
+        private void UpdateSelectionTextBoxes()
+        {
+            _updatingTextBoxesProgrammatically = true;
+
+            if (_currentSelection.IsVisible)
+            {
+                SelectionXTextBox.Text = ((int)_currentSelection.X).ToString();
+                SelectionYTextBox.Text = ((int)_currentSelection.Y).ToString();
+                SelectionWidthTextBox.Text = ((int)_currentSelection.Width).ToString();
+                SelectionHeightTextBox.Text = ((int)_currentSelection.Height).ToString();
+            }
+            else
+            {
+                SelectionXTextBox.Text = "";
+                SelectionYTextBox.Text = "";
+                SelectionWidthTextBox.Text = "";
+                SelectionHeightTextBox.Text = "";
+            }
+
+            _updatingTextBoxesProgrammatically = false;
         }
 
         #endregion

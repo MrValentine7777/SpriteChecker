@@ -130,17 +130,22 @@
                             </Grid.RowDefinitions>
                             
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="X:" FontWeight="Bold" Margin="0,2"/>
-                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="SelectionXText" Margin="5,2"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="SelectionXTextBox" Margin="5,2" 
+                                     TextChanged="SelectionCoordinate_TextChanged" Tag="X"/>
                             
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Y:" FontWeight="Bold" Margin="0,2"/>
-                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SelectionYText" Margin="5,2"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="SelectionYTextBox" Margin="5,2" 
+                                     TextChanged="SelectionCoordinate_TextChanged" Tag="Y"/>
                             
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Width:" FontWeight="Bold" Margin="0,2"/>
-                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="SelectionWidthText" Margin="5,2"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" x:Name="SelectionWidthTextBox" Margin="5,2" 
+                                     TextChanged="SelectionCoordinate_TextChanged" Tag="Width"/>
                             
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Height:" FontWeight="Bold" Margin="0,2"/>
-                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="SelectionHeightText" Margin="5,2"/>
-                                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Name:" FontWeight="Bold" Margin="0,2"/>
+                            <TextBox Grid.Row="3" Grid.Column="1" x:Name="SelectionHeightTextBox" Margin="5,2" 
+                                     TextChanged="SelectionCoordinate_TextChanged" Tag="Height"/>
+                                                        
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Name:" FontWeight="Bold" Margin="0,2"/>
                             <TextBox Grid.Row="4" Grid.Column="1" x:Name="SpriteNameTextBox" Margin="5,2"/>
                             
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Tag:" FontWeight="Bold" Margin="0,2"/>
